@@ -24,25 +24,39 @@ url="$2"
 
 z40=0000000000000000000000000000000000000000
 
+function checkFocus() {
+    # Checks whether the focus tests are present in the push
+    # if so, than fail to continue
+    # focused tests must be removed in the main repository
+
+    local grep_result=$(git --no-pager grep -n -w -e "FDescribe(" --or -e "FContext(" --or -e "FIt(" -- :^vendor)
+
+    if [ -n "$grep_result" ]
+    then
+        echo >&2 "Found focused tests, please remove them:"
+        echo >&2 "$grep_result"
+        exit 1
+    fi
+}
+
 while read local_ref local_sha remote_ref remote_sha
 do
-        if [ "$local_sha" = $z40 ]
+    if [ "$local_sha" = $z40 ]
+    then
+        # Handle delete
+        :
+    else
+        if [ "$remote_sha" = $z40 ]
         then
-                # Handle delete
-                :
+            # New branch, examine all commits
+            range="$local_sha"
         else
-                if [ "$remote_sha" = $z40 ]
-                then
-                        # New branch, examine all commits
-                        range="$local_sha"
-                else
-                        # Update to existing branch, examine new commits
-                        range="$remote_sha..$local_sha"
-                fi
+            # Update to existing branch, examine new commits
+            range="$remote_sha..$local_sha"
+        fi
+    fi
 
-                # Check for WIP commit
-                commit=`git rev-list -n 1 --grep '^WIP' "$range"`
-                if [ -n "$commit" ]
-                then
-                        echo >&2 "Found WIP commit in $local_ref, not pushing"
-:
+    checkFocus
+done
+
+exit 0
