@@ -1,0 +1,123 @@
+#! /usr/bin/env bash
+
+# An example hook script to verify what is about to be pushed.  Called by "git
+# push" after it has checked the remote status, but before anything has been
+# pushed.  If this script exits with a non-zero status nothing will be pushed.
+#
+# This hook is called with the following parameters:
+#
+# $1 -- Name of the remote to which the push is being done
+# $2 -- URL to which the push is being done
+#
+# If pushing without using a named remote those arguments will be equal.
+#
+# Information about the commits which are being pushed is supplied as lines to
+# the standard input in the form:
+#
+#   <local ref> <local sha1> <remote ref> <remote sha1>
+#
+# This sample shows how to prevent push of commits where the log message starts
+# with "WIP" (work in progress).
+
+remote="$1"
+url="$2"
+
+z40=0000000000000000000000000000000000000000
+
+function checkFocus() {
+    # Checks whether the focus tests are present in the push
+    # if so, than fail to continue
+    # focused tests must be removed in the main repository
+
+    local grep_result=$(git --no-pager grep -n -w -e "FDescribe(" --or -e "FContext(" --or -e "FIt(" -- :^vendor)
+
+    if [ -n "$grep_result" ]
+    then
+        echo >&2 "Found focused tests, please remove them:"
+        echo >&2 "$grep_result"
+        exit 1
+    fi
+}
+
+function checkGenerate() {
+    # Checks whether make generate have to be run first
+    # make generate automatically updates generates files
+    # and format code
+    #
+    # run generate to see whether you have not forgot
+    # also will save some work for you
+    ./hack/generate.sh
+
+    local generate_result=$(git status --porcelain)
+    if [ -n "$generate_result" ]
+    then
+        echo >&2 "It seems you have to run commit generated stuff"
+        exit 1
+    fi
+}
+
+function checkTest() {
+    # Checks whether the unit tests are passing
+    # passing basic unit tests are the absolute
+    # minimal requirement to go for PR
+    #
+    # Also, passing tests locally will save you
+    # time when asking for PR, since you will
+    # know upfront that you are PR ready.
+
+    #TODO: figure out how to run containerized tests
+    # make test
+    if [ "$?" -ne 0 ]
+    then
+        echo >&2 "Please make sure the unit tests are passing"
+        exit 1
+    fi
+}
+
+function checkPrintf() {
+    # Checks whether new printf has been introduced
+    # in this push
+    # Forces you to think twice if you really
+    # need that printf
+
+    #TODO: implement
+    if [ "$?" -ne 0 ]
+    then
+        echo >&2 "Please make sure the unit tests are passing"
+        exit 1
+    fi
+}
+
+function checkStyle() {
+    # Checks whether you have run go fmt
+
+    #TODO: implement
+    if [ "$?" -ne 0 ]
+    then
+        echo >&2 "Please make sure the unit tests are passing"
+        exit 1
+    fi
+}
+
+while read local_ref local_sha remote_ref remote_sha
+do
+    if [ "$local_sha" = $z40 ]
+    then
+        # Handle delete
+        :
+    else
+        if [ "$remote_sha" = $z40 ]
+        then
+            # New branch, examine all commits
+            range="$local_sha"
+        else
+            # Update to existing branch, examine new commits
+            range="$remote_sha..$local_sha"
+        fi
+    fi
+
+    checkFocus
+    checkGenerate
+done
+
+exit 0
