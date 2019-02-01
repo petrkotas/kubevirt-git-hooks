@@ -16,6 +16,7 @@ TODO:
 * [ ] implement unit test check
 * [ ] add `go fmt` and `go import` check separately
 * [ ] figure out a way how to check for functinal tests run locally
+* [ ] whitelist branches, eg master, for dev purposes
 
 
 ## Requirements
